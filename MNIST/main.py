@@ -4,6 +4,7 @@ import torchvision.datasets as datasets
 import matplotlib.pyplot as plt
 from model import Model
 import numpy as np
+import time
 
 
 mnist_trainset = datasets.MNIST(root='./data', train=True, download=True, transform=transforms.Compose([transforms.ToTensor()]))
@@ -28,15 +29,20 @@ for i in range(1, 6):
     plt.imshow(img)
 plt.show()
 
+# strat training
+start_time = time.time()
 
 model = Model()
 criterion = torch.nn.CrossEntropyLoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 
-if (torch.cuda.is_available()):
-    model.cuda()
+have_gpu = torch.backends.mps.is_available()
 
-no_epochs = 10
+if have_gpu:
+    mps_device = torch.device("mps")
+    model.to(mps_device)
+
+no_epochs = 50
 train_loss = list()
 val_loss = list()
 best_val_loss = 1
@@ -48,9 +54,9 @@ for epoch in range(no_epochs):
     # training
     for itr, (image, label) in enumerate(train_dataloader):
 
-        if (torch.cuda.is_available()):
-            image = image.cuda()
-            label = label.cuda()
+        if have_gpu:
+            image = image.to(mps_device)
+            label = label.to(mps_device)
 
         optimizer.zero_grad()
 
@@ -70,9 +76,9 @@ for epoch in range(no_epochs):
     total = 0
     for itr, (image, label) in enumerate(val_dataloader):
 
-        if (torch.cuda.is_available()):
-            image = image.cuda()
-            label = label.cuda()
+        if have_gpu:
+            image = image.to(mps_device)
+            label = label.to(mps_device)
 
         pred = model(image)
 
@@ -96,7 +102,12 @@ for epoch in range(no_epochs):
         print("Saving the model state dictionary for Epoch: {} with Validation loss: {:.8f}".format(epoch + 1, total_val_loss))
         torch.save(model.state_dict(), "model.dth")
 
-fig=plt.figure(figsize=(20, 10))
+
+end_time = time.time()
+print("Total time taken: {:.2f} seconds".format(end_time - start_time))
+
+
+fig=plt.figure(figsize=(10, 5))
 plt.plot(np.arange(1, no_epochs+1), train_loss, label="Train loss")
 plt.plot(np.arange(1, no_epochs+1), val_loss, label="Validation loss")
 plt.xlabel('Loss')
@@ -113,9 +124,9 @@ results = list()
 total = 0
 for itr, (image, label) in enumerate(test_dataloader):
 
-    if (torch.cuda.is_available()):
-        image = image.cuda()
-        label = label.cuda()
+    if have_gpu:
+        image = image.to(mps_device)
+        label = label.to(mps_device)
 
     pred = model(image)
     pred = torch.nn.functional.softmax(pred, dim=1)
@@ -129,9 +140,9 @@ test_accuracy = total / (itr + 1)
 print('Test accuracy {:.8f}'.format(test_accuracy))
 
 # visualize results
-fig=plt.figure(figsize=(20, 10))
+fig=plt.figure(figsize=(10, 5))
 for i in range(1, 11):
-    img = transforms.ToPILImage(mode='L')(results[i][0].squeeze(0).detach().cpu())
+    img = transforms.ToPILImage(mode='L')(results[i][0][0].squeeze().detach().cpu())
     fig.add_subplot(2, 5, i)
     plt.title(results[i][1].item())
     plt.imshow(img)
