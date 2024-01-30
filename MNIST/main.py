@@ -36,7 +36,7 @@ optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 if (torch.cuda.is_available()):
     model.cuda()
 
-no_epochs = 100
+no_epochs = 10
 train_loss = list()
 val_loss = list()
 best_val_loss = 1
